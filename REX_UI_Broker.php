@@ -1,4 +1,9 @@
 <?php
+
+// Create the DB in case it does not exist yet
+
+require_once 'REX_DB_Handler.php';
+
 // ==========================================
 // 1. GENERATIVE MARKET DATABASE ENGINE
 // ==========================================
