@@ -8,8 +8,6 @@ This document explains how to write a lightweight C# script, compile it into a s
 
 If you do not want to install massive development environments like Visual Studio or the modern .NET SDK, Windows actually has a C# compiler hidden inside its system files by default. It is called **`csc.exe`**.
 
-### What the Screenshot Shows
-The screenshot demonstrates a successful compilation using this built-in tool:
 1. **The Path:** The user navigates directly to the project folder (`cd C:\xampp\htdocs\REX`).
 2. **The Command:** The built-in compiler is triggered using its absolute path (`C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe`), pointing to the target C# file (`Test_Valuation.cs`).
 3. **The Output:** The warning `This compiler is provided as part of the Microsoft (R) .NET Framework, but only supports language versions up to C# 5...` is a **success message**. It simply informs you that it is using an older, highly stable version of C#. 
