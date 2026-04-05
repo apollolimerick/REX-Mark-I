@@ -787,7 +787,7 @@ if ($view === 'chain') {
         <div class="netflix-grid">
             <?php 
                 $houses = [];
-                for ($i = 1; $i <= 11; $i++) { $houses[] = "house$i.jpg"; }
+                for ($i = 1; $i <= 11; $i++) { $houses[] = "Background_images/house$i.jpg"; }
                 $grid_images = array_merge($houses, $houses, $houses, $houses, $houses, $houses);
                 foreach ($grid_images as $img): 
             ?>
@@ -801,7 +801,7 @@ if ($view === 'chain') {
         
         <!-- Left Side: REX Logo -->
         <a href="?view=terminal" class="flex items-center gap-3 flex-shrink-0 no-underline cursor-pointer transition-transform hover:scale-[1.02]">
-            <img src="rex_logo.png" alt="REX Logo" class="h-9 w-auto drop-shadow-sm" onerror="this.style.display='none'">
+            <img src="Logo/rex_logo.png" alt="REX Logo" class="h-9 w-auto drop-shadow-sm" onerror="this.style.display='none'">
             <div class="flex items-center font-serif text-lg tracking-wide text-slate-900 dark:text-white drop-shadow-sm whitespace-nowrap">
                 <span class="font-black text-xl tracking-[0.1em] bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-500 dark:from-slate-100 dark:to-slate-400">REX&reg; - </span> 
                 <span class="hidden lg:inline font-semibold opacity-90 ml-2">Residential Property Exchange</span>

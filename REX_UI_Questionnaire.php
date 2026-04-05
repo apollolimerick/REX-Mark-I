@@ -246,7 +246,7 @@ $questionnaire = [
                 // Core 11 house images
                 $houses = [];
                 for ($i = 1; $i <= 11; $i++) {
-                    $houses[] = "house$i.jpg";
+                    $houses[] = "Background_images/house$i.jpg";
                 }
                 // Merge them multiple times to ensure the steeper tilted grid completely fills any screen size
                 // 11 images * 6 repetitions = 66 total squares rendered to safely cover massive desktop screens
@@ -265,7 +265,7 @@ $questionnaire = [
         
         <!-- Left Side: REX Logo and Text -->
         <div class="flex items-center gap-3 relative z-10">
-            <img src="Rex_logo.png" alt="REX Logo" class="h-10 w-auto" onerror="this.style.display='none'">
+            <img src="Logo/Rex_logo.png" alt="REX Logo" class="h-10 w-auto" onerror="this.style.display='none'">
             <div class="flex items-center font-serif text-xl tracking-wide text-slate-900 dark:text-white drop-shadow-sm whitespace-nowrap">
                 <span class="font-black text-2xl tracking-[0.1em] bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-400">REX&reg; - </span> 
                 <span class="hidden md:inline font-semibold opacity-90 ml-2">Residential Property Exchange</span>

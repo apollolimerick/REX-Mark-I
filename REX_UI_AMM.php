@@ -238,7 +238,7 @@ if (isset($_SESSION['pool_initialized'])) {
     <div class="netflix-grid">
         <?php 
             $houses = [];
-            for ($i = 1; $i <= 11; $i++) { $houses[] = "house$i.jpg"; }
+            for ($i = 1; $i <= 11; $i++) { $houses[] = "Background_images/house$i.jpg"; }
             $grid_images = array_merge($houses, $houses, $houses, $houses, $houses, $houses);
             foreach ($grid_images as $img): 
         ?>
@@ -249,7 +249,7 @@ if (isset($_SESSION['pool_initialized'])) {
 
 <header>
     <a href="?" class="rex-logo">
-        <img src="REX_logo.jpg" alt="REX Logo" onerror="this.style.display='none'">
+        <img src="Logo/REX_logo.jpg" alt="REX Logo" onerror="this.style.display='none'">
         <span>REX</span>
     </a>
     <div class="header-tag">
