@@ -1,12 +1,88 @@
 <?php
+
+require_once 'REX_DB_Handler.php';
+
+// Handle form submission and file uploads
 // Handle form submission and file uploads
 $submitted = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // In a real application, process $_POST and $_FILES here.
-    // Example: move_uploaded_file($_FILES['ownership_doc']['tmp_name'], $destination);
     $submitted = true;
-}
 
+    // 1. Convert checkbox to a boolean integer (1 or 0)
+    $consent = isset($_POST['consent_disclaimer']) ? 1 : 0;
+
+    // 2. Helper function: If an input is missing or blank, return true NULL
+    function get_val($key) {
+        return (isset($_POST[$key]) && trim($_POST[$key]) !== '') ? trim($_POST[$key]) : null;
+    }
+
+    // 3. Assign variables safely
+    $cadastral_id         = get_val('cadastral_id');
+    $official_lot_size    = get_val('official_lot_size');
+    $official_living_area = get_val('official_living_area');
+    $year_built           = get_val('year_built');
+    $last_transfer_year   = get_val('last_transfer_year');
+    $ceiling_height       = get_val('ceiling_height');
+    $total_rooms          = get_val('total_rooms');
+    $wet_rooms            = get_val('wet_rooms');
+    $outbuildings         = get_val('outbuildings');
+    $garage_sqm           = get_val('garage_sqm');
+    $wall_thickness       = get_val('wall_thickness');
+    $dist_transit         = get_val('dist_transit');
+    $dist_center          = get_val('dist_center');
+    $annual_tax           = get_val('annual_tax');
+    $monthly_maintenance  = get_val('monthly_maintenance');
+    $legal_name           = get_val('legal_name');
+    $contact_email        = get_val('contact_email');
+
+    // 4. Extract the uploaded file as raw binary (BLOB)
+    $ownership_blob = null;
+    if (isset($_FILES['ownership_doc']) && $_FILES['ownership_doc']['error'] === UPLOAD_ERR_OK) {
+        $ownership_blob = file_get_contents($_FILES['ownership_doc']['tmp_name']);
+    }
+
+    // 5. Prepare the SQL Statement
+    $insert_query = "INSERT INTO property_data (
+        consent_disclaimer, cadastral_id, official_lot_size, official_living_area, 
+        year_built, last_transfer_year, ceiling_height, total_rooms, wet_rooms, 
+        outbuildings, garage_sqm, wall_thickness, dist_transit, dist_center, 
+        annual_tax, monthly_maintenance, legal_name, contact_email, ownership_doc
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    $stmt = $conn->prepare($insert_query);
+
+    // 6. Bind the parameters
+    $stmt->bind_param("isddiidiiidididdssb", 
+        $consent, 
+        $cadastral_id, 
+        $official_lot_size, 
+        $official_living_area, 
+        $year_built, 
+        $last_transfer_year, 
+        $ceiling_height, 
+        $total_rooms, 
+        $wet_rooms, 
+        $outbuildings, 
+        $garage_sqm, 
+        $wall_thickness, 
+        $dist_transit, 
+        $dist_center, 
+        $annual_tax, 
+        $monthly_maintenance, 
+        $legal_name, 
+        $contact_email, 
+        $ownership_blob 
+    );
+
+    // 7. Safely send the BLOB data
+    if ($ownership_blob !== null) {
+        $stmt->send_long_data(18, $ownership_blob);
+    }
+
+    // 8. Execute the insertion
+    $stmt->execute();
+    $stmt->close();
+}
 // Define the new, quantitative-focused questionnaire
 $questionnaire = [
     [
@@ -543,4 +619,6 @@ $questionnaire = [
         if(totalSteps > 0) updateUI();
     </script>
 </body>
+
+
 </html>
