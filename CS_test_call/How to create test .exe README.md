@@ -18,5 +18,6 @@ Because the command was run from inside the `REX` directory, the compiler instan
 
 **Commands to enter:**
 
-    cd C:\xampp\htdocs\REX
-    C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe C:\xampp\htdocs\REX\Test_Valuation.cs
+    cd C:\xampp\htdocs\REX\CS_test_call
+```
+C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe C:\xampp\htdocs\REX\CS_test_call\Test_Valuation.cs
