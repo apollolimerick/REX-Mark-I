@@ -1,8 +1,54 @@
 <?php
+session_start();
 
 // Create the DB in case it does not exist yet
 
 require_once 'REX_DB_Handler.php';
+
+// ==========================================
+// AUTHENTICATION HANDLER
+// ==========================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['auth_action'])) {
+    $action = $_POST['auth_action'];
+    
+    if ($action === 'logout') {
+        session_unset();
+        session_destroy();
+        header("Location: ?view=" . (isset($_GET['view']) ? $_GET['view'] : 'terminal'));
+        exit;
+    } elseif ($action === 'login') {
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        
+        $stmt = $conn->prepare("SELECT id, legal_name, password_hash FROM users WHERE email = ?");
+        if ($stmt) {
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $stmt->bind_result($uid, $lname, $hash);
+            if ($stmt->fetch() && password_verify($password, $hash)) {
+                $_SESSION['user_name'] = $lname;
+                $_SESSION['user_id'] = $uid;
+            }
+            $stmt->close();
+        }
+    } elseif ($action === 'signup') {
+        $name = trim($_POST['legal_name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $pass = password_hash($_POST['password'] ?? '', PASSWORD_DEFAULT);
+        $phone = trim($_POST['phone'] ?? '');
+        $tax = trim($_POST['tax_number'] ?? '');
+        
+        $stmt = $conn->prepare("INSERT INTO users (legal_name, email, password_hash, phone_number, tax_id_number) VALUES (?, ?, ?, ?, ?)");
+        if ($stmt) {
+            $stmt->bind_param("sssss", $name, $email, $pass, $phone, $tax);
+            if ($stmt->execute()) {
+                $_SESSION['user_name'] = $name;
+                $_SESSION['user_id'] = $conn->insert_id;
+            }
+            $stmt->close();
+        }
+    }
+}
 
 // ==========================================
 // 1. GENERATIVE MARKET DATABASE ENGINE
@@ -571,7 +617,6 @@ if ($view === 'chain') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>REX | Global Asset Terminal</title>
-    <!-- Injected Tailwind, Chart.js, Globe.gl & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/globe.gl"></script>
@@ -786,7 +831,6 @@ if ($view === 'chain') {
 </head>
 <body class="text-slate-800 dark:text-slate-300 antialiased min-h-screen relative font-sans">
 
-    <!-- Subtle Halo Lighting & Background Grid -->
     <div class="light-halo"></div>
     <div class="bg-canvas">
         <div class="netflix-grid">
@@ -801,10 +845,8 @@ if ($view === 'chain') {
         </div>
     </div>
 
-    <!-- Header with Navigation Pills & Auth Buttons -->
     <header class="fixed top-0 w-full z-50 px-6 py-4 flex flex-col md:flex-row justify-between items-center bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-white/40 dark:border-slate-700/50 transition-colors shadow-sm gap-4 md:gap-6">
         
-        <!-- Left Side: REX Logo -->
         <a href="?view=terminal" class="flex items-center gap-3 flex-shrink-0 no-underline cursor-pointer transition-transform hover:scale-[1.02]">
             <img src="Logo/rex_logo.png" alt="REX Logo" class="h-9 w-auto drop-shadow-sm" onerror="this.style.display='none'">
             <div class="flex items-center font-serif text-lg tracking-wide text-slate-900 dark:text-white drop-shadow-sm whitespace-nowrap">
@@ -813,7 +855,6 @@ if ($view === 'chain') {
             </div>
         </a>
         
-        <!-- Center Navigation Pane -->
         <div class="flex-1 flex justify-center w-full md:w-auto overflow-x-auto hide-scrollbar pb-1 md:pb-0">
             <nav class="header-nav">
                 <a href="?view=terminal" class="nav-btn <?= $view === 'terminal' ? 'active-terminal' : '' ?>">Global Asset Terminal</a>
@@ -826,41 +867,66 @@ if ($view === 'chain') {
             </nav>
         </div>
 
-        <!-- Right Side: Auth & Theme Toggle -->
         <div class="flex items-center gap-4 flex-shrink-0">
             <button onclick="toggleDarkMode()" class="p-2 rounded-full bg-white/40 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/80 transition-colors border border-white/50 dark:border-slate-600/50 shadow-sm" title="Toggle Theme">
                 <svg id="icon-sun" class="w-5 h-5 hidden dark:block text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                 <svg id="icon-moon" class="w-5 h-5 block dark:hidden text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
             </button>
             <div class="h-5 w-px bg-[var(--border)] mx-1 hidden sm:block"></div>
-            <button onclick="openAuthModal('login')" class="hidden sm:block text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors tracking-wide">Log In</button>
-            <button onclick="openAuthModal('signup')" class="hidden sm:block bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2 rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 transition-transform tracking-wide">Sign Up</button>
+            
+            <?php if (isset($_SESSION['user_name'])): ?>
+                <div class="hidden sm:block text-sm font-bold text-slate-700 dark:text-slate-300 mr-2">
+                    Logged in as <span class="text-brand-color dark:text-blue-400"><?= htmlspecialchars($_SESSION['user_name']) ?></span>
+                </div>
+                <form method="POST" class="m-0">
+                    <input type="hidden" name="auth_action" value="logout">
+                    <button type="submit" class="hidden sm:block bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-rose-500/20 transition-colors tracking-wide">Log Out</button>
+                </form>
+            <?php else: ?>
+                <button onclick="openAuthModal('login')" class="hidden sm:block text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors tracking-wide">Log In</button>
+                <button onclick="openAuthModal('signup')" class="hidden sm:block bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2 rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 transition-transform tracking-wide">Sign Up</button>
+            <?php endif; ?>
         </div>
     </header>
 
-    <!-- Global Auth Modal -->
     <div id="authModal" class="auth-modal">
         <div class="auth-box bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl relative mx-4">
             <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-500 hover:text-slate-800 dark:hover:text-white">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
             <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6" id="authTitle">Secure Access</h2>
-            <div class="form-group mb-4">
-                <input type="text" id="authUsername" placeholder="Email or Username" class="w-full !p-4 !text-lg !font-medium bg-slate-50 dark:bg-slate-800/50">
-            </div>
-            <div class="form-group mb-6">
-                <input type="password" id="authPassword" placeholder="Password" class="w-full !p-4 !text-lg !font-medium bg-slate-50 dark:bg-slate-800/50">
-            </div>
-            <button class="w-full bg-[#2563eb] text-white font-bold py-4 rounded-xl hover:bg-[#1d4ed8] transition shadow-md" onclick="alert('Simulation: Authentication Successful'); closeAuthModal()">
-                Continue
-            </button>
+            
+            <form method="POST" id="authForm">
+                <input type="hidden" name="auth_action" id="authAction" value="login">
+                
+                <div id="signupFields" style="display: none;">
+                    <div class="form-group mb-4">
+                        <input type="text" name="legal_name" id="authName" placeholder="Full Legal Name" class="w-full !p-4 !text-lg !font-medium bg-slate-50 dark:bg-slate-800/50">
+                    </div>
+                    <div class="form-group mb-4">
+                        <input type="text" name="phone" id="authPhone" placeholder="Phone Number" class="w-full !p-4 !text-lg !font-medium bg-slate-50 dark:bg-slate-800/50">
+                    </div>
+                    <div class="form-group mb-4">
+                        <input type="text" name="tax_number" id="authTax" placeholder="Tax ID Number" class="w-full !p-4 !text-lg !font-medium bg-slate-50 dark:bg-slate-800/50">
+                    </div>
+                </div>
+
+                <div class="form-group mb-4">
+                    <input type="email" name="email" id="authEmail" placeholder="Email Address" required class="w-full !p-4 !text-lg !font-medium bg-slate-50 dark:bg-slate-800/50">
+                </div>
+                <div class="form-group mb-6">
+                    <input type="password" name="password" id="authPassword" placeholder="Password" required class="w-full !p-4 !text-lg !font-medium bg-slate-50 dark:bg-slate-800/50">
+                </div>
+                <button type="submit" class="w-full bg-[#2563eb] text-white font-bold py-4 rounded-xl hover:bg-[#1d4ed8] transition shadow-md">
+                    Continue
+                </button>
+            </form>
         </div>
     </div>
 
     <main class="pt-36 pb-24 px-6 sm:px-8 lg:px-12 max-w-[1500px] mx-auto relative z-10">
         
         <?php if ($view === 'terminal'): ?>
-            <!-- Premium Glass Breadcrumbs & Back Button -->
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-12 gap-4">
                 <div class="flex items-center gap-4 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 hide-scrollbar">
                     <?php if ($node_type > 0): ?>
@@ -885,18 +951,15 @@ if ($view === 'chain') {
                 </div>
 
                 <?php if ($node_type === 0): ?>
-                    <!-- Globe Toggle Button (Only on Global View) -->
                     <button onclick="toggleGlobe()" class="text-sm font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 px-5 py-3 rounded-xl hover:bg-blue-500/20 transition-colors flex items-center gap-2 shadow-sm flex-shrink-0">
                         🌍 Select on Map
                     </button>
                 <?php endif; ?>
             </div>
 
-            <!-- Globe Container (Hidden by default) -->
             <?php if ($node_type === 0): ?>
                 <div id="globe-container" class="hidden w-full h-[650px] mb-12 rounded-3xl overflow-hidden border border-slate-700 shadow-2xl relative bg-[#020617] flex items-center justify-center">
-                    <!-- High Contrast Base Map is loaded via JS -->
-                </div>
+                    </div>
             <?php endif; ?>
 
             <?php if ($is_leaf && $trade_target): ?>
@@ -1021,7 +1084,6 @@ if ($view === 'chain') {
                     <?php foreach ($current_level_data as $key => $value): ?>
                         <?php if ($key === '_meta') continue; ?>
                         
-                        <!-- Restyled Menu Card matching exact typography from reference images -->
                         <a href="<?= buildPath($path, $key) ?>" class="glass-pane group min-h-[160px] p-6 flex flex-col justify-between hover:-translate-y-1 transition-transform">
                             <div>
                                 <h3 class="text-2xl font-bold mb-1 text-slate-900 dark:text-white tracking-tight">
@@ -1058,7 +1120,6 @@ if ($view === 'chain') {
 
             <?php endif; ?>
 
-            <!-- Trade Overlay & Side Panel (Global for any Terminal View) -->
             <?php if ($trade_target): ?>
                 <div class="overlay" id="overlay" onclick="closeTradeWindows()"></div>
                 
@@ -1075,7 +1136,6 @@ if ($view === 'chain') {
                         <div class="trade-tab" onclick="switchTab('vault')">Vault</div>
                     </div>
 
-                    <!-- Buy Tab -->
                     <div id="tab-buy" class="tab-content active">
                         <div class="form-group">
                             <label>Spend Amount (USD)</label>
@@ -1092,7 +1152,6 @@ if ($view === 'chain') {
                                 <input type="number" id="input-buy-shares" placeholder="0.00" oninput="syncInputs('buy', 'shares')">
                             </div>
                         </div>
-                        <!-- Execution Details -->
                         <div class="flex justify-between items-center text-xs font-semibold text-[var(--text-muted)] mb-6 px-2">
                             <span>Routing: <span class="text-[var(--brand-color)]">REX AMM</span></span>
                             <span>Est. Fee: <span class="text-slate-900 dark:text-white" id="fee-buy">$0.00 (0.1%)</span></span>
@@ -1100,7 +1159,6 @@ if ($view === 'chain') {
                         <button class="btn-submit" onclick="alert('Simulation: Buy order routed to market.')">Review Buy Order</button>
                     </div>
 
-                    <!-- Sell Tab -->
                     <div id="tab-sell" class="tab-content">
                         <div class="form-group">
                             <label>Receive Amount (USD)</label>
@@ -1117,7 +1175,6 @@ if ($view === 'chain') {
                                 <input type="number" id="input-sell-shares" placeholder="0.00" oninput="syncInputs('sell', 'shares')">
                             </div>
                         </div>
-                        <!-- Execution Details -->
                         <div class="flex justify-between items-center text-xs font-semibold text-[var(--text-muted)] mb-6 px-2">
                             <span>Routing: <span class="text-[var(--brand-color)]">REX AMM</span></span>
                             <span>Est. Fee: <span class="text-slate-900 dark:text-white" id="fee-sell">$0.00 (0.1%)</span></span>
@@ -1125,7 +1182,6 @@ if ($view === 'chain') {
                         <button class="btn-submit" onclick="alert('Simulation: Sell order routed to market.')">Review Sell Order</button>
                     </div>
 
-                    <!-- Short Tab -->
                     <div id="tab-short" class="tab-content">
                         <div class="form-group">
                             <label>Initial Margin Deposit (50%)</label>
@@ -1143,7 +1199,6 @@ if ($view === 'chain') {
                             </div>
                         </div>
 
-                        <!-- Margin Requirements UI -->
                         <div class="p-5 rounded-xl border border-rose-500/30 bg-rose-500/5 mb-6 text-sm">
                             <div class="flex justify-between mb-3 items-center">
                                 <span class="text-slate-600 dark:text-slate-300 font-semibold">Total Position Size</span>
@@ -1158,7 +1213,6 @@ if ($view === 'chain') {
                             </div>
                         </div>
                         
-                        <!-- Execution Details -->
                         <div class="flex justify-between items-center text-xs font-semibold text-[var(--text-muted)] mb-4 px-2">
                             <span>Routing: <span class="text-[var(--brand-color)]">REX Margin Pool</span></span>
                             <span>Borrow APY: <span class="text-slate-900 dark:text-white">8.5%</span></span>
@@ -1167,7 +1221,6 @@ if ($view === 'chain') {
                         <button class="btn-submit" style="background: var(--accent-down); box-shadow: 0 8px 24px rgba(225, 29, 72, 0.25);" onclick="alert('Simulation: Margin deposited. Short initialized.')">Deposit Margin & Short</button>
                     </div>
 
-                    <!-- Vault (Lockup) Tab -->
                     <div id="tab-vault" class="tab-content">
                         <div class="form-group">
                             <label>Amount to Lock (Shares)</label>
@@ -1196,7 +1249,6 @@ if ($view === 'chain') {
                     </div>
                 </div>
 
-                <!-- Dynamic Chart Window Elevated Above Overlay -->
                 <div class="chart-panel" id="chartPanel">
                     <button class="btn-close" style="position: absolute; top: 24px; right: 24px;" onclick="closeTradeWindows()">×</button>
                     
@@ -1227,7 +1279,6 @@ if ($view === 'chain') {
 
         <?php elseif ($view === 'offer'): ?>
             
-            <!-- OFFER HOME EQUITY VIEW (Redirect Pane) -->
             <div class="glass-pane max-w-4xl mx-auto p-12 sm:p-16 text-center mt-12 shadow-xl">
                 <div class="w-20 h-20 bg-purple-500/10 text-purple-500 rounded-full flex items-center justify-center mx-auto mb-8 border border-purple-500/20 shadow-inner">
                     <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 001 1m-6 0h6"></path></svg>
@@ -1241,7 +1292,6 @@ if ($view === 'chain') {
 
         <?php elseif ($view === 'advanced'): ?>
             
-            <!-- ADVANCED MARKET DATA VIEW (Finviz Treemap) -->
             <?php
                 // Flatten all leaf node assets for Finviz style massive treemap
                 $all_heatmap_assets = [];
@@ -1276,7 +1326,6 @@ if ($view === 'chain') {
 
                 <div class="flex flex-col xl:flex-row gap-8 h-auto xl:h-[800px]">
                     
-                    <!-- Left Col: Massive Finviz Heatmap -->
                     <div class="w-full xl:w-3/4 bg-[#111827] border border-slate-800 shadow-2xl relative overflow-hidden h-[600px] xl:h-full flex flex-col p-1 rounded-sm">
                         <div class="flex flex-wrap w-full h-full content-start gap-[1px]">
                             <?php foreach($all_heatmap_assets as $item): ?>
@@ -1306,7 +1355,6 @@ if ($view === 'chain') {
                         </div>
                     </div>
 
-                    <!-- Right Col: Sentiment Matrix -->
                     <div class="w-full xl:w-1/4 glass-pane flex flex-col h-[600px] xl:h-full">
                         <div class="p-6 pb-4 border-b border-[var(--border)]">
                             <h3 class="font-bold text-xl text-slate-900 dark:text-white">AI Sentiment</h3>
@@ -1348,7 +1396,6 @@ if ($view === 'chain') {
 
         <?php elseif ($view === 'portfolio'): ?>
             
-            <!-- MY PORTFOLIO VIEW -->
             <?php
                 // Split logic for clean tables
                 $liquid_holdings = array_filter($portfolio_holdings, function($h) { return $h['status'] === 'Liquid'; });
@@ -1366,7 +1413,6 @@ if ($view === 'chain') {
                     </div>
                 </div>
 
-                <!-- Top Stats Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div class="glass-pane p-6">
                         <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Total Equity Value</div>
@@ -1390,7 +1436,6 @@ if ($view === 'chain') {
                     </div>
                 </div>
 
-                <!-- Chart Pane -->
                 <div class="glass-pane p-8 mb-10 h-[400px] flex flex-col">
                     <div class="flex justify-between items-start mb-6">
                         <h3 class="font-bold text-xl text-slate-900 dark:text-white">Historical Account Value</h3>
@@ -1408,7 +1453,6 @@ if ($view === 'chain') {
 
                 <div class="flex flex-col gap-10">
                     
-                    <!-- Liquid Holdings Table -->
                     <div class="glass-pane p-8">
                         <h3 class="font-bold text-xl text-slate-900 dark:text-white mb-6 border-b border-[var(--border)] pb-4 flex items-center gap-3">
                             <span class="w-3 h-3 rounded-full bg-emerald-500"></span> Available Liquid Equity
@@ -1458,7 +1502,6 @@ if ($view === 'chain') {
                         </div>
                     </div>
 
-                    <!-- Vaulted Holdings Table -->
                     <div class="glass-pane p-8">
                         <h3 class="font-bold text-xl text-slate-900 dark:text-white mb-6 border-b border-[var(--border)] pb-4 flex items-center gap-3">
                             <span class="w-3 h-3 rounded-full bg-purple-500"></span> Vaulted (Locked) Equity
@@ -1506,7 +1549,6 @@ if ($view === 'chain') {
                         </div>
                     </div>
 
-                    <!-- Recent Trades -->
                     <div class="glass-pane p-8">
                         <h3 class="font-bold text-xl text-slate-900 dark:text-white mb-6 border-b border-[var(--border)] pb-4">Recent Trades</h3>
                         <div class="overflow-x-auto">
@@ -1551,7 +1593,6 @@ if ($view === 'chain') {
 
         <?php elseif ($view === 'chain'): ?>
             
-            <!-- TRANSACTION CHAIN LEDGER -->
             <div class="max-w-5xl mx-auto mt-8">
                 
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-6">
@@ -1565,7 +1606,6 @@ if ($view === 'chain') {
                     </div>
                 </div>
 
-                <!-- Ledger Filtering Pane -->
                 <form method="GET" action="" class="glass-pane p-6 mb-12 flex flex-col md:flex-row gap-6 items-end">
                     <input type="hidden" name="view" value="chain">
                     <div class="flex-1 w-full">
@@ -1597,10 +1637,8 @@ if ($view === 'chain') {
                     <?php foreach ($chain_blocks as $index => $block): ?>
                         
                         <div class="chain-block glass-pane p-8 mb-10 relative">
-                            <!-- Timeline Node Dot -->
                             <div class="block-node <?= ($index === count($chain_blocks)-1) ? 'genesis-node' : '' ?>"></div>
                             
-                            <!-- Block Header -->
                             <div class="flex justify-between items-start mb-6 border-b border-[var(--border)] pb-6">
                                 <div>
                                     <div class="flex items-center gap-4 mb-2">
@@ -1625,7 +1663,6 @@ if ($view === 'chain') {
                                 </div>
                             </div>
 
-                            <!-- Block Transactions -->
                             <div class="space-y-4">
                                 <?php foreach ($block['transactions'] as $tx): ?>
                                     <div class="flex items-center p-4 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] hover:bg-[var(--bg-stronger)] transition-colors">
@@ -1639,7 +1676,7 @@ if ($view === 'chain') {
                                         </div>
                                         <div class="w-1/4 text-right font-mono text-xs text-[var(--text-muted)] copy-btn justify-end" onclick="copyToClipboard('<?= $tx['txid'] ?>')">
                                             TXID: <?= substr($tx['txid'], 0, 10) ?>...
-                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -1652,7 +1689,6 @@ if ($view === 'chain') {
 
         <?php elseif ($view === 'about'): ?>
             
-            <!-- ABOUT REX VIEW -->
             <div class="max-w-5xl mx-auto mt-12 mb-20 space-y-8">
                 
                 <div class="glass-pane overflow-hidden">
@@ -1665,7 +1701,6 @@ if ($view === 'chain') {
                     </div>
                     
                     <div class="p-12 sm:p-16 space-y-16">
-                        <!-- Problem Section -->
                         <div class="flex flex-col md:flex-row gap-8 items-start">
                             <div class="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-xl flex items-center justify-center flex-shrink-0 border border-rose-500/20">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
@@ -1678,7 +1713,6 @@ if ($view === 'chain') {
                             </div>
                         </div>
 
-                        <!-- Solution Section -->
                         <div class="flex flex-col md:flex-row gap-8 items-start">
                             <div class="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center flex-shrink-0 border border-blue-500/20">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -1693,7 +1727,6 @@ if ($view === 'chain') {
                             </div>
                         </div>
 
-                        <!-- Safety Section -->
                         <div class="bg-emerald-500/5 border border-emerald-500/20 p-8 rounded-2xl flex flex-col md:flex-row gap-8 items-start shadow-inner">
                             <div class="w-12 h-12 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center flex-shrink-0 border border-emerald-500/30">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
@@ -1708,7 +1741,6 @@ if ($view === 'chain') {
                     </div>
                 </div>
 
-                <!-- Strategic Partners -->
                 <div class="glass-pane p-12 sm:p-16">
                     <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-8 text-center">Strategic Infrastructure Partners</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -1745,7 +1777,11 @@ if ($view === 'chain') {
 
     </main>
 
-    <!-- Global JavaScript for Terminal Logic -->
+    <div id="toast" class="toast-notification">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        Copied to clipboard
+    </div>
+
     <script>
         // Copy to Clipboard Utility
         function copyToClipboard(text) {
@@ -1772,14 +1808,26 @@ if ($view === 'chain') {
             document.documentElement.classList.remove('dark');
         }
 
-        // Auth Modal Handlers (Clears inputs when opened)
+        // Auth Modal Handlers
         function openAuthModal(type) {
             const title = type === 'login' ? 'Log In' : 'Sign Up';
             document.getElementById('authTitle').innerText = title;
-            const uInput = document.getElementById('authUsername');
-            const pInput = document.getElementById('authPassword');
-            if(uInput) uInput.value = '';
-            if(pInput) pInput.value = '';
+            document.getElementById('authAction').value = type;
+            
+            if (type === 'signup') {
+                document.getElementById('signupFields').style.display = 'block';
+                document.getElementById('authName').required = true;
+            } else {
+                document.getElementById('signupFields').style.display = 'none';
+                document.getElementById('authName').required = false;
+            }
+            
+            document.getElementById('authEmail').value = '';
+            document.getElementById('authPassword').value = '';
+            document.getElementById('authName').value = '';
+            document.getElementById('authPhone').value = '';
+            document.getElementById('authTax').value = '';
+            
             document.getElementById('authModal').classList.add('active');
         }
         
