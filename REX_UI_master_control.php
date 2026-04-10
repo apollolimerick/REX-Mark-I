@@ -165,10 +165,36 @@ if (isset($_POST['master_seed'])) {
 // =========================================================================
 // ACTION: GENERATE BLOCKCHAIN TXT
 // =========================================================================
+
 if (isset($_POST['gen_blockchain'])) {
-    // Add blockchain structure here
-    $sys_msg = "Blockchain transaction log generation triggered. (Txt generation skipped for now).";
-    $sys_status = "info";
+    require_once __DIR__ . '/REX_Blockchain.php';  
+
+    try {
+        $result = buildAndPersistBlockchain($conn);
+
+        if ($result['valid']) {
+            $sys_msg    = "✅ Blockchain sikeresen legenerálva és mentve! "
+                        . "Blokkok: {$result['block_count']} | "
+                        . "Tranzakciók: {$result['tx_count']} | "
+                        . "Lánc integritás: VALID";
+            $sys_status = "success";
+        } else {
+            $sys_msg    = "⚠️ Blockchain generálva, de validáció sikertelen!";
+            $sys_status = "error";
+        }
+    } catch (Exception $e) {
+        $sys_msg    = "❌ Blockchain hiba: " . $e->getMessage();
+        $sys_status = "error";
+    }
+}
+
+// ============================================================
+// Blockchain blokk count a UI-hoz
+// ============================================================
+$count_blockchain = 0;
+$chain_table_check = $conn->query("SHOW TABLES LIKE 'blockchain_ledger'");
+if ($chain_table_check && $chain_table_check->num_rows > 0) {
+    $count_blockchain = $conn->query("SELECT COUNT(*) FROM blockchain_ledger")->fetch_row()[0] ?? 0;
 }
 
 // Fetch current table counts for UI display
