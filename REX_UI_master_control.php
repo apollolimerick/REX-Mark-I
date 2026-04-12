@@ -163,7 +163,7 @@ if (isset($_POST['master_seed'])) {
 }
 
 // =========================================================================
-// ACTION: GENERATE BLOCKCHAIN TXT
+// ACTION: GENERATE BLOCKCHAIN
 // =========================================================================
 
 if (isset($_POST['gen_blockchain'])) {
@@ -347,9 +347,9 @@ $count_private = $conn->query("SELECT COUNT(*) FROM property_private_compliance"
                 <div class="control-box">
                     <div>
                         <h3>Blockchain Ledger Synthesis</h3>
-                        <p>Compiles current relational database properties and user roles into an immutable text log format simulating on-chain hash events. (Currently skipped, marked for future integration).</p>
+                        <p>Generates an immutable text log, simulating on-chain hash events.</p>
                     </div>
-                    <button type="submit" name="gen_blockchain" class="btn btn-chain">Generate Immutable Txt</button>
+                    <button type="submit" name="gen_blockchain" class="btn btn-chain">Generate Immutable Chain</button>
                 </div>
             </div>
 
