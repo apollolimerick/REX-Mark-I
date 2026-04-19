@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'REX_DB_Handler.php'; // Requires your DB connection
+require_once 'REX_DB_handler.php'; // Adatbázis kapcsolat
 
 $sys_msg = '';
 $sys_status = 'info'; // info, success, error
@@ -125,7 +125,7 @@ if (isset($_POST['master_seed'])) {
         // --- STEP 3: GENERATE PRIVATE COMPLIANCE ---
         $actual_private = 0;
         if ($num_private > 0) {
-            // Only fetch public properties that DO NOT already have a private document (1-to-1 strict relationship)
+            // Fetch public properties that DO NOT already have a private document
             $res = $conn->query("SELECT id FROM property_public_market WHERE id NOT IN (SELECT property_id FROM property_private_compliance) LIMIT $num_private");
             
             $unmatched_props = [];
@@ -138,7 +138,7 @@ if (isset($_POST['master_seed'])) {
                 
                 foreach ($unmatched_props as $prop_id) {
                     $street = mt_rand(1, 9999) . ' ' . get_rand($street_names);
-                    $zip = mt_rand(10000, 99999);
+                    $zip = (string)mt_rand(10000, 99999);
                     $consent = 1;
                     $dummy_blob = "DUMMY_PDF_BINARY_DATA_" . md5(mt_rand()); 
                     
@@ -152,7 +152,7 @@ if (isset($_POST['master_seed'])) {
         }
         
         $conn->commit();
-        $sys_msg = "Seeded: $num_users Users | $num_public Assets | $actual_private Docs (Capped to available properties without documents).";
+        $sys_msg = "Seeded: $num_users Users | $num_public Assets | $actual_private Docs (Capped to properties without documents).";
         $sys_status = "success";
 
     } catch (Exception $e) {
@@ -165,7 +165,6 @@ if (isset($_POST['master_seed'])) {
 // =========================================================================
 // ACTION: GENERATE BLOCKCHAIN
 // =========================================================================
-
 if (isset($_POST['gen_blockchain'])) {
     require_once __DIR__ . '/REX_Blockchain.php';  
 
@@ -189,7 +188,7 @@ if (isset($_POST['gen_blockchain'])) {
 }
 
 // ============================================================
-// Blockchain blokk count a UI-hoz
+// Táblák sorainak lekérdezése a UI-hoz
 // ============================================================
 $count_blockchain = 0;
 $chain_table_check = $conn->query("SHOW TABLES LIKE 'blockchain_ledger'");
@@ -197,7 +196,6 @@ if ($chain_table_check && $chain_table_check->num_rows > 0) {
     $count_blockchain = $conn->query("SELECT COUNT(*) FROM blockchain_ledger")->fetch_row()[0] ?? 0;
 }
 
-// Fetch current table counts for UI display
 $count_users = $conn->query("SELECT COUNT(*) FROM users")->fetch_row()[0] ?? 0;
 $count_public = $conn->query("SELECT COUNT(*) FROM property_public_market")->fetch_row()[0] ?? 0;
 $count_private = $conn->query("SELECT COUNT(*) FROM property_private_compliance")->fetch_row()[0] ?? 0;
@@ -314,10 +312,11 @@ $count_private = $conn->query("SELECT COUNT(*) FROM property_private_compliance"
         <div class="card">
             <div class="card-title">System Architecture Status</div>
             
-            <div style="display: flex; gap: 16px; margin-bottom: 30px;">
+            <div style="display: flex; gap: 16px; margin-bottom: 30px; flex-wrap: wrap;">
                 <div class="stats-badge">Users: <?= number_format($count_users) ?> Rows</div>
                 <div class="stats-badge">Public Assets: <?= number_format($count_public) ?> Rows</div>
                 <div class="stats-badge">Private Docs: <?= number_format($count_private) ?> Rows</div>
+                <div class="stats-badge" style="color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">Ledger Blocks: <?= number_format($count_blockchain) ?></div>
             </div>
 
             <div class="control-grid">
@@ -347,7 +346,7 @@ $count_private = $conn->query("SELECT COUNT(*) FROM property_private_compliance"
                 <div class="control-box">
                     <div>
                         <h3>Blockchain Ledger Synthesis</h3>
-                        <p>Generates an immutable text log, simulating on-chain hash events.</p>
+                        <p>Generates an immutable, MySQL-backed Proof-of-Work (PoW) ledger using pseudonymous IDs, fully compliant with GDPR constraints.</p>
                     </div>
                     <button type="submit" name="gen_blockchain" class="btn btn-chain">Generate Immutable Chain</button>
                 </div>

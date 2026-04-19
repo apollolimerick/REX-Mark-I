@@ -1,6 +1,6 @@
 <?php
 // ============================================================
-// REX_DB_handler.php — FRISSÍTETT VERZIÓ
+// REX_DB_handler.php
 // ============================================================
 
 $host   = "localhost";
@@ -22,7 +22,7 @@ if ($conn->query($create_db_query) === TRUE) {
     die("Error creating database: " . $conn->error);
 }
 
-// 3. USERS TÁBLA
+// 3. USERS TÁBLA (Itt tároljuk a személyes adatokat)
 $create_users = "CREATE TABLE IF NOT EXISTS users (
     id               INT(11) AUTO_INCREMENT PRIMARY KEY,
     legal_name       VARCHAR(255) NOT NULL,
@@ -37,7 +37,7 @@ $create_users = "CREATE TABLE IF NOT EXISTS users (
 )";
 if ($conn->query($create_users) === FALSE) die("Error creating users table: " . $conn->error);
 
-// 4. PROPERTY_PUBLIC_MARKET TÁBLA
+// 4. PROPERTY_PUBLIC_MARKET TÁBLA (Minden publikus adat + owner_id reláció)
 $create_public_properties = "CREATE TABLE IF NOT EXISTS property_public_market (
     id                   INT(11) AUTO_INCREMENT PRIMARY KEY,
     owner_id             INT(11) NOT NULL,
@@ -82,7 +82,7 @@ $create_public_properties = "CREATE TABLE IF NOT EXISTS property_public_market (
 )";
 if ($conn->query($create_public_properties) === FALSE) die("Error creating public properties table: " . $conn->error);
 
-// 5. PROPERTY_PRIVATE_COMPLIANCE TÁBLA
+// 5. PROPERTY_PRIVATE_COMPLIANCE TÁBLA (Kizárólag a bizalmas címek és iratok)
 $create_private_properties = "CREATE TABLE IF NOT EXISTS property_private_compliance (
     property_id      INT(11) PRIMARY KEY,
     street_address   VARCHAR(255) NOT NULL,
@@ -93,7 +93,7 @@ $create_private_properties = "CREATE TABLE IF NOT EXISTS property_private_compli
 )";
 if ($conn->query($create_private_properties) === FALSE) die("Error creating private compliance table: " . $conn->error);
 
-// 6. BLOCKCHAIN_LEDGER TÁBLA (ÚJ)
+// 6. BLOCKCHAIN_LEDGER TÁBLA
 $create_blockchain = "CREATE TABLE IF NOT EXISTS blockchain_ledger (
     id              INT(11) AUTO_INCREMENT PRIMARY KEY,
     block_index     INT(11) NOT NULL,
@@ -107,12 +107,12 @@ $create_blockchain = "CREATE TABLE IF NOT EXISTS blockchain_ledger (
 )";
 if ($conn->query($create_blockchain) === FALSE) die("Error creating blockchain_ledger table: " . $conn->error);
 
-// 7. ADATBÁZIS CLEANUP (csak engedélyezett táblák maradnak)
+// 7. ADATBÁZIS CLEANUP
 $allowed_tables = [
     'users',
     'property_public_market',
     'property_private_compliance',
-    'blockchain_ledger',  // ← ÚJ sor
+    'blockchain_ledger',
 ];
 
 $result = $conn->query("SHOW TABLES");

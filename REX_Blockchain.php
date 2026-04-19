@@ -2,8 +2,6 @@
 // ============================================================
 // REX_Blockchain.php
 // Privát blockchain ledger a REX platformhoz
-// Dummy tranzakciókhoz: BUY, SELL, SHORT, VAULT_LOCK, TOKENIZE
-// Beilleszthető a REX_UI_master_control.php gen_blockchain blokkjába
 // ============================================================
 
 require_once __DIR__ . '/REX_DB_handler.php';
@@ -38,7 +36,6 @@ class Block {
         );
     }
 
-    // Egyszerű Proof-of-Work: hash-nek 0-val kell kezdődnie (difficulty=1)
     public function mine(int $difficulty = 1): void {
         $target = str_repeat('0', $difficulty);
         while (substr($this->hash, 0, $difficulty) !== $target) {
@@ -65,11 +62,11 @@ class Blockchain {
         $genesis_tx = [[
             'tx_id'      => '0x' . strtoupper(substr(hash('sha256', 'REX_GENESIS_' . time()), 0, 16)),
             'type'       => 'GENESIS',
-            'from'       => 'REX_SYSTEM',
-            'to'         => 'REX_LEDGER',
-            'asset'      => 'REX-GLOBAL',
+            'user_id'    => 0, // System
+            'asset'      => 'REX-GLOBAL-IDX',
             'amount'     => 100000000,
-            'detail'     => 'Initial AMM Pool — 100,000,000 USD / 10,000,000 REX-SHARES',
+            'shares'     => 10000000,
+            'detail'     => 'Initial Global AMM Pool: $100,000,000 USD / 10,000,000 REX-SHARES',
             'created_at' => date('Y-m-d H:i:s'),
         ]];
         $block = new Block(0, $genesis_tx, '0000000000000000000000000000000000000000');
@@ -110,79 +107,130 @@ class Blockchain {
 }
 
 // ============================================================
-// 3. DUMMY TRANZAKCIÓ GENERÁTOR
-//    Valós users és property_public_market adatokból épít
+// 3. DUMMY TRANZAKCIÓ GENERÁTOR (UI HIERARCHIA ALAPJÁN)
 // ============================================================
 function generateDummyTransactions(mysqli $conn): array {
-    global $tx_types;
-
     $tx_types = ['BUY', 'SELL', 'SHORT', 'VAULT_LOCK', 'TOKENIZE'];
 
-    // Lekérjük a valós usereket és property-ket
+    // Lekérjük a valós usereket (Csak ID a GDPR miatt)
     $users = [];
-    $res = $conn->query("SELECT id, legal_name FROM users LIMIT 100");
+    $res = $conn->query("SELECT id FROM users LIMIT 100");
     while ($row = $res->fetch_assoc()) $users[] = $row;
+    if (empty($users)) $users = [['id' => 1], ['id' => 2], ['id' => 3], ['id' => 4]];
 
-    $properties = [];
-    $res = $conn->query("SELECT id, city, country, equity_target, listing_status FROM property_public_market LIMIT 100");
-    while ($row = $res->fetch_assoc()) $properties[] = $row;
+    // --- Pontos hierarchia betöltése a UI-ból ---
+    $iso_map = [
+        'United States' => 'USA', 'Canada' => 'CAN', 'United Kingdom' => 'GBR',
+        'Germany' => 'DEU', 'France' => 'FRA', 'Italy' => 'ITA',
+        'Spain' => 'ESP', 'Netherlands' => 'NLD', 'Switzerland' => 'CHE',
+        'Sweden' => 'SWE', 'Japan' => 'JPN', 'South Korea' => 'KOR',
+        'Australia' => 'AUS', 'New Zealand' => 'NZL', 'Singapore' => 'SGP',
+        'UAE' => 'ARE', 'Brazil' => 'BRA', 'Mexico' => 'MEX',
+        'Argentina' => 'ARG', 'Chile' => 'CHL', 'South Africa' => 'ZAF',
+        'Hungary' => 'HUN', 'Austria' => 'AUT', 'Poland' => 'POL',
+    ];
 
-    // Ha nincs adat a DB-ben, fallback dummy
-    if (empty($users)) {
-        $users = [
-            ['id' => 1, 'legal_name' => 'System Genesis Owner'],
-            ['id' => 2, 'legal_name' => 'Alice Kovacs'],
-            ['id' => 3, 'legal_name' => 'Bob Smith'],
-        ];
+    $geography = [
+        'North America' => ['United States' => ['New York', 'Los Angeles'], 'Canada' => ['Toronto']],
+        'Europe' => ['United Kingdom' => ['London'], 'Germany' => ['Berlin'], 'France' => ['Paris'], 'Hungary' => ['Budapest']],
+        'Asia' => ['Japan' => ['Tokyo'], 'South Korea' => ['Seoul']],
+        'Middle East' => ['UAE' => ['Dubai']],
+        'South America' => ['Brazil' => ['Sao Paulo']],
+        'Oceania' => ['Australia' => ['Sydney']],
+        'Africa' => ['South Africa' => ['Cape Town']]
+    ];
+
+    $abbrev = ['North America'=>'NA', 'Europe'=>'EU', 'Asia'=>'AS', 'Middle East'=>'ME', 'South America'=>'SA', 'Oceania'=>'OC', 'Africa'=>'AF'];
+    $districtPool = ['NOR', 'SOU', 'EAS', 'WES', 'CEN', 'DOW', 'WAT', 'HIS', 'FIN', 'SUB'];
+
+    // Dinamikusan generáljuk a valid tickereket minden szintre, egységes REX- prefixszel
+    $cont_tickers = [];
+    $nat_tickers = [];
+    $leaf_tickers = [];
+
+    foreach($geography as $continent => $countries) {
+        $cont_pref = isset($abbrev[$continent]) ? $abbrev[$continent] : strtoupper(substr(str_replace(' ', '', $continent), 0, 2));
+        $cont_tickers[] = "REX-{$cont_pref}-CONT-IDX";
+
+        foreach($countries as $country => $cities) {
+            $nat_pref = isset($iso_map[$country]) ? $iso_map[$country] : strtoupper(substr(str_replace(' ', '', $country), 0, 3));
+            $nat_tickers[] = "REX-{$nat_pref}-IDX";
+
+            foreach($cities as $city) {
+                $city_pref = strtoupper(substr(str_replace(' ', '', $city), 0, 3));
+                // Minden város kap egy fő tickert és pár véletlenszerű kerületet (Leaf)
+                $leaf_tickers[] = "REX-{$nat_pref}-{$city_pref}";
+                $leaf_tickers[] = "REX-{$nat_pref}-{$city_pref}-" . $districtPool[array_rand($districtPool)];
+                $leaf_tickers[] = "REX-{$nat_pref}-{$city_pref}-" . $districtPool[array_rand($districtPool)];
+            }
+        }
     }
-    if (empty($properties)) {
-        $properties = [
-            ['id' => 1,  'city' => 'Budapest',  'country' => 'Hungary',       'equity_target' => 15, 'listing_status' => 'active_market'],
-            ['id' => 2,  'city' => 'Berlin',    'country' => 'Germany',       'equity_target' => 10, 'listing_status' => 'underwritten'],
-            ['id' => 3,  'city' => 'London',    'country' => 'United Kingdom','equity_target' => 20, 'listing_status' => 'active_market'],
-        ];
-    }
 
-    // 10 blokkhoz generálunk tranzakciókat (2-4 tx/blokk)
     $all_blocks_txs = [];
     for ($b = 0; $b < 10; $b++) {
-        $num_tx = mt_rand(2, 4);
+        $num_tx = mt_rand(3, 6);
         $txs    = [];
+        
         for ($t = 0; $t < $num_tx; $t++) {
-            $type     = $tx_types[array_rand($tx_types)];
-            $user     = $users[array_rand($users)];
-            $prop     = $properties[array_rand($properties)];
-            $amount   = mt_rand(100, 50000);
-            $shares   = round($amount / mt_rand(500, 5000), 4);
-            $ticker   = 'REX-' . strtoupper(substr(str_replace(' ', '', $prop['city']), 0, 6)) . '-' . $prop['id'];
+            $type = $tx_types[array_rand($tx_types)];
+            $user = $users[array_rand($users)];
+            
+            // Kockadobás a trade szintjére: 5% Global, 15% Continent, 30% National, 50% Leaf Node
+            $trade_level_roll = mt_rand(1, 100);
 
-            // Tranzakció leírás típus szerint
+            if ($trade_level_roll <= 5) {
+                // Global Scale
+                $ticker = 'REX-GLOBAL-IDX';
+                $context = "(Global Aggregate)";
+                $amount = mt_rand(10000000, 50000000);
+                if ($type === 'TOKENIZE') $type = 'BUY'; // Indexet nem lehet tokenizálni
+            } elseif ($trade_level_roll <= 20) {
+                // Continental Scale
+                $ticker = $cont_tickers[array_rand($cont_tickers)];
+                $context = "(Continental Index)";
+                $amount = mt_rand(1000000, 10000000);
+                if ($type === 'TOKENIZE') $type = 'BUY';
+            } elseif ($trade_level_roll <= 50) {
+                // National Scale
+                $ticker = $nat_tickers[array_rand($nat_tickers)];
+                $context = "(National Index)";
+                $amount = mt_rand(200000, 2000000);
+                if ($type === 'TOKENIZE') $type = 'SHORT';
+            } else {
+                // Leaf Node
+                $ticker = $leaf_tickers[array_rand($leaf_tickers)];
+                $context = "(Local Leaf Node)";
+                $amount = mt_rand(500, 150000);
+            }
+
+            $shares = round($amount / mt_rand(500, 5000), 4);
+
+            // Tranzakció leírása (Teljesen letisztítva, csak "User")
             switch ($type) {
                 case 'BUY':
-                    $detail = "Bought {$shares} shares of {$ticker} for \${$amount} USD";
+                    $detail = "User Executed Buy: $" . number_format($amount) . " of {$ticker} {$context}";
                     break;
                 case 'SELL':
-                    $detail = "Sold {$shares} shares of {$ticker}, received \${$amount} USD";
+                    $detail = "User Liquidated $" . number_format($amount) . " position in {$ticker} {$context}";
                     break;
                 case 'SHORT':
-                    $detail = "Opened short position: {$shares} shares of {$ticker} (margin: \$" . round($amount * 0.5) . ")";
+                    $detail = "User Opened Short: $" . number_format($amount) . " against {$ticker} {$context}";
                     break;
                 case 'VAULT_LOCK':
-                    $lock_days = [7, 30, 180, 365][array_rand([7, 30, 180, 365])];
-                    $detail    = "Locked {$shares} shares of {$ticker} for {$lock_days} days in REX Vault";
+                    $detail = "User Locked $" . number_format($amount) . " of {$ticker} into Staking Vault";
                     break;
                 case 'TOKENIZE':
-                    $detail = "Tokenized property #{$prop['id']} ({$prop['city']}, {$prop['country']}) — {$prop['equity_target']}% equity → {$ticker}";
+                    $detail = "User Tokenized Asset: Hash 0x" . strtoupper(substr(md5(time().$t), 0, 6)) . " minted into {$ticker}";
                     break;
                 default:
                     $detail = "Unknown transaction";
             }
 
+            // Szigorú GDPR adatszerkezet
             $txs[] = [
                 'tx_id'      => '0x' . strtoupper(substr(hash('sha256', uniqid('', true)), 0, 16)),
                 'type'       => $type,
-                'from'       => 'USER#' . $user['id'] . ' (' . $user['legal_name'] . ')',
-                'to'         => $ticker,
+                'user_id'    => $user['id'],
                 'asset'      => $ticker,
                 'amount'     => $amount,
                 'shares'     => $shares,
@@ -199,7 +247,6 @@ function generateDummyTransactions(mysqli $conn): array {
 // 4. BLOCKCHAIN FELTÖLTÉSE ÉS MENTÉSE MySQL-be
 // ============================================================
 function buildAndPersistBlockchain(mysqli $conn): array {
-    // 4a. Létrehozzuk a blockchain_ledger táblát ha nincs
     $conn->query("
         CREATE TABLE IF NOT EXISTS blockchain_ledger (
             id              INT(11) AUTO_INCREMENT PRIMARY KEY,
@@ -214,16 +261,11 @@ function buildAndPersistBlockchain(mysqli $conn): array {
         )
     ");
 
-    // 4b. Üresítjük az előző láncot (clean regenerate)
     $conn->query("TRUNCATE TABLE blockchain_ledger");
 
-    // 4c. Blockchain objektum létrehozása
     $blockchain = new Blockchain(difficulty: 1);
-
-    // 4d. Dummy tranzakciók generálása
     $all_blocks = generateDummyTransactions($conn);
 
-    // 4e. Blokkok hozzáadása és DB-be mentése
     $stmt = $conn->prepare("
         INSERT INTO blockchain_ledger
             (block_index, block_hash, previous_hash, block_timestamp, nonce, transactions, status)
@@ -246,34 +288,28 @@ function buildAndPersistBlockchain(mysqli $conn): array {
         $stmt->execute();
     }
 
-    // 4f. Genesis blokk mentése is
- $genesis = $blockchain->getChain()[0];
-$g_json  = json_encode($genesis->transactions, JSON_UNESCAPED_UNICODE);
-$g_stat  = 'confirmed';
-
-$conn->query("
-    INSERT IGNORE INTO blockchain_ledger
-        (block_index, block_hash, previous_hash, block_timestamp, nonce, transactions, status)
-    VALUES (
-        0,
-        '{$genesis->hash}',
-        '{$genesis->previous_hash}',
-        '{$genesis->timestamp}',
-        {$genesis->nonce},
-        '" . $conn->real_escape_string($g_json) . "',
-        'confirmed'
-    )
-");
-
-    // 4g. Validálás
-    $is_valid     = $blockchain->isValid();
-    $block_count  = count($blockchain->getChain());
-    $tx_count     = array_sum(array_map(fn($b) => count($b->transactions), $blockchain->getChain()));
+    // Genesis blokk mentése
+    $genesis = $blockchain->getChain()[0];
+    $g_json  = json_encode($genesis->transactions, JSON_UNESCAPED_UNICODE);
+    
+    $conn->query("
+        INSERT IGNORE INTO blockchain_ledger
+            (block_index, block_hash, previous_hash, block_timestamp, nonce, transactions, status)
+        VALUES (
+            0,
+            '{$genesis->hash}',
+            '{$genesis->previous_hash}',
+            '{$genesis->timestamp}',
+            {$genesis->nonce},
+            '" . $conn->real_escape_string($g_json) . "',
+            'confirmed'
+        )
+    ");
 
     return [
-        'valid'        => $is_valid,
-        'block_count'  => $block_count,
-        'tx_count'     => $tx_count,
+        'valid'        => $blockchain->isValid(),
+        'block_count'  => count($blockchain->getChain()),
+        'tx_count'     => array_sum(array_map(fn($b) => count($b->transactions), $blockchain->getChain())),
         'chain'        => $blockchain->getChain(),
     ];
 }
@@ -291,12 +327,10 @@ function validateChainFromDB(mysqli $conn): array {
         $curr = $blocks[$i];
         $prev = $blocks[$i - 1];
 
-        // Prev hash match
         if ($curr['previous_hash'] !== $prev['block_hash']) {
             return ['valid' => false, 'reason' => "Block #{$curr['block_index']}: previous_hash mismatch"];
         }
 
-        // Recompute hash
         $recomputed = hash('sha256',
             $curr['block_index'] .
             $curr['block_timestamp'] .

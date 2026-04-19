@@ -1,6 +1,10 @@
 <?php
+// ============================================================
+// REX_UI_Questionnaire.php
+// Ingatlan Tokenizációs Űrlap (Homeowner Onboarding)
+// ============================================================
 
-require_once 'REX_DB_Handler.php';
+require_once 'REX_DB_handler.php'; // Kijavítva a pontos fájlnévre (case-sensitive)
 
 // Handle form submission and file uploads
 $submitted = false;
@@ -95,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // --- TABLE 2: PUBLIC MARKET DATA ---
+        // (Includes owner_id as agreed, to preserve relational logic without breaking public display inherently)
         $query_public = "INSERT INTO property_public_market (
             owner_id, city, state_region, country, property_type, zoning_class, tenure_type, leasehold_years,
             official_living_area, official_lot_size, year_built, last_renovation_year, total_bedrooms, wet_rooms, roof_material, roof_age, hvac_type, hvac_age, parking_spaces, has_pool, waterfront_access,
